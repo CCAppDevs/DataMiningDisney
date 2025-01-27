@@ -22,19 +22,19 @@ namespace DataMining
             ctx = new MLContext();
             
             // read the input data into the system
-            trainingData = ctx.Data.LoadFromTextFile<DisneylandReview>(dataPath, hasHeader: true);
+            trainingData = ctx.Data.LoadFromTextFile<DisneylandReview>(dataPath, hasHeader: true, separatorChar: ',');
 
             // build a data pipeline (transforming your data into something that works)
-            var pipeline = ctx.Transforms.Text
-                .FeaturizeText("Features", nameof(DisneylandReview.ReviewText))
-                .Append(ctx.BinaryClassification.Trainers.LbfgsLogisticRegression(nameof(DisneylandReview.Rating), "Features"));
+            var pipeline = ctx.Transforms.Conversion.MapValueToKey(inputColumnName: "Rating", outputColumnName: "Label")
+                .Append(ctx.Transforms.Text.FeaturizeText(inputColumnName: "ReviewText", outputColumnName: "FeaturizedReviewText"))
+                .Append(ctx.Transforms.Concatenate("Features", "FeaturizedReviewText"))
+                .AppendCacheCheckpoint(ctx)
+                .Append(ctx.MulticlassClassification.Trainers.SdcaMaximumEntropy("Label", "Features"));
 
             // train your model (make it run the gauntlet)
             trainedModel = pipeline.Fit(trainingData);
 
             // Consume the model (make predictions)
-
-            var predictionEngine = ctx.Model.CreatePredictionEngine<DisneylandReview, DisneylandPrediction>(trainedModel);
 
             // capture some text
             var sampleStatement = new DisneylandReview
@@ -47,11 +47,33 @@ namespace DataMining
                 Branch = "Disneyland_Paris"
             };
 
-            var predicion = predictionEngine.Predict(sampleStatement);
-            
 
+            var prediction = Predict(sampleStatement);
+
+            PrintPrediction(prediction, sampleStatement);
 
             Console.ReadLine();
+        }
+
+        public void PrintPrediction(DisneylandPrediction prediction, DisneylandReview review)
+        {
+            Console.WriteLine($"" +
+                $"Review Text: {review.ReviewText}\n" +
+                $"Predicted Rating: {prediction.Prediction}\n" +
+                $"Actual Rating: {review.Rating}\n");
+
+            for (int i = 0; i < prediction.Score.Length; i++)
+            {
+                Console.WriteLine($"Score {i + 1}: {prediction.Score[i]}");
+            }
+        }
+
+        public DisneylandPrediction? Predict(DisneylandReview review)
+        {
+            var predictionEngine = ctx.Model.CreatePredictionEngine<DisneylandReview, DisneylandPrediction>(trainedModel);
+            var prediction = predictionEngine.Predict(review);
+
+            return prediction;
         }
 
         static void Main(string[] args)

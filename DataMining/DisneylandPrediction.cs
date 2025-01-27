@@ -10,10 +10,10 @@ namespace DataMining
     public class DisneylandPrediction
     {
         [ColumnName("PredictedLabel")]
-        public bool Prediction { get; set; }
+        public uint Prediction { get; set; }
 
-        public float Probability { get; set; }
+        public float[] Probability { get; set; }
 
-        public float Score { get; set; }
+        public float[] Score { get; set; }
     }
 }
