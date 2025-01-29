@@ -6,6 +6,7 @@ namespace DataMining
     {
         private MLContext ctx;
         private string dataPath;
+        private string testDataPath;
         private IDataView trainingData;
         private string modelPath;
         private ITransformer trainedModel;
@@ -16,6 +17,7 @@ namespace DataMining
         {
             // gather any variables and set them
             dataPath = Path.Combine(Environment.CurrentDirectory, "data\\DisneylandReviews.csv");
+            testDataPath = Path.Combine(Environment.CurrentDirectory, "data\\testData.csv");
             modelPath = Path.Combine(Environment.CurrentDirectory, "models\\model.zip");
 
             // Create a context ()
@@ -29,21 +31,24 @@ namespace DataMining
                 .Append(ctx.Transforms.Text.FeaturizeText(inputColumnName: "ReviewText", outputColumnName: "FeaturizedReviewText"))
                 .Append(ctx.Transforms.Concatenate("Features", "FeaturizedReviewText"))
                 .AppendCacheCheckpoint(ctx)
-                .Append(ctx.MulticlassClassification.Trainers.SdcaMaximumEntropy("Label", "Features"));
+                .Append(ctx.MulticlassClassification.Trainers.SdcaMaximumEntropy("Label", "Features"))
+                .Append(ctx.Transforms.Conversion.MapKeyToValue("PredictedLabel"));
 
-            // train your model (make it run the gauntlet)
+
+            // build and train your model (make it run the gauntlet)
+
             trainedModel = pipeline.Fit(trainingData);
-
+            Evaluate(trainingData.Schema);
             // Consume the model (make predictions)
 
             // capture some text
             var sampleStatement = new DisneylandReview
             {
-                ReviewId = 2842749,
-                Rating = 5,
+                ReviewId = 2718239,
+                Rating = 1,
                 YearMonth = "missing",
                 ReviewerLocation = "United Kingdom",
-                ReviewText = "just returned from a wonderfull trip to disneyland paris ! we got the euro star from ashford stright through to the marnee la ville station whice is 1 min away from the parks . there are shuttle buses outside that take you straight to you hotel we stayed at the hotel chyanne whice was brillent nice clean rooms and micky mouse himself welcomes you at check in the first day we took a stroll to the parks whice are only 10 mins walk away its a plesent walk around diseny lake and you pass the hotel new york that has an out door ice rink the park itself was magical all done up for chrismas with big chrismas trees and even fake snow !! the late night parade was brillient all sparkling lights the rides are awsome space mountain being the best there were hardly any cues and we found the staff to be plesent and friendly the second day we did the walt disney studios whice again was brillient the stunt show is out of this world ,and the arosmith rock an roller coster ride amazing you dont need a whole day there though as its a lot smaller the the park itself .all in all i would stongley recomend a trip there especially out of season as the ques are much shorter the only moan i have is that the food and drinks are a bit expensive but we were expecting that also at night the disney village is alive with discos in the street the rainforest cafe whice is awsome and also planet hollywood i cant wait to go again !",
+                ReviewText = "Tickets were cheaper than other Disneys. Fast Pass was the bomb as we pre bought. The best rides were Mansion and the Grizzly Man Coaster. Space Mountain is not as good as Florida, California and even Paris. Ironman is okay. Pooh bear is good. This park is way smaller than the others which keeps the day simple. You only need one day here.",
                 Branch = "Disneyland_Paris"
             };
 
@@ -66,6 +71,21 @@ namespace DataMining
             {
                 Console.WriteLine($"Score {i + 1}: {prediction.Score[i]}");
             }
+        }
+
+        public void Evaluate(DataViewSchema trainingDataViewSchema)
+        {
+            var testDataView = ctx.Data.LoadFromTextFile<DisneylandReview>(testDataPath, hasHeader: true, separatorChar: ',');
+            var testMetrics = ctx.MulticlassClassification.Evaluate(trainedModel.Transform(testDataView));
+
+            Console.WriteLine($"*************************************************************************************************************");
+            Console.WriteLine($"*       Metrics for Multi-class Classification model - Test Data     ");
+            Console.WriteLine($"*------------------------------------------------------------------------------------------------------------");
+            Console.WriteLine($"*       MicroAccuracy:    {testMetrics.MicroAccuracy:0.###}");
+            Console.WriteLine($"*       MacroAccuracy:    {testMetrics.MacroAccuracy:0.###}");
+            Console.WriteLine($"*       LogLoss:          {testMetrics.LogLoss:#.###}");
+            Console.WriteLine($"*       LogLossReduction: {testMetrics.LogLossReduction:#.###}");
+            Console.WriteLine($"*************************************************************************************************************");
         }
 
         public DisneylandPrediction? Predict(DisneylandReview review)
