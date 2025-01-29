@@ -13,7 +13,7 @@ namespace DataMining
         [LoadColumn(0)]
         public int ReviewId { get; set; }
         [LoadColumn(1)]
-        public int Rating { get; set; }
+        public string Rating { get; set; }
         [LoadColumn(2)]
         public string YearMonth { get; set; }
         [LoadColumn(3)]
